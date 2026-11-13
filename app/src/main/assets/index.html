@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>無人島に2つだけ</title>
+<style>
+  :root{--bg:#0f2235;--panel:#16304a;--ink:#eef6ff;--mut:#9db4c8;--sand:#f3d38b;--ok:#4cd964;--ng:#ff5e57;--gold:#ffd166}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  .scr{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden}
+  .scr.on{display:flex}
+  .wrap{width:100%;max-width:620px;margin:auto;padding:16px;overflow-y:auto;max-height:100%}
+  h1{font-size:24px;text-align:center;margin:6px 0}
+  h2{font-size:18px;text-align:center;margin:4px 0 10px}
+  .lead{color:var(--mut);font-size:14px;text-align:center;line-height:1.6;margin:0 0 14px}
+  .nums{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+  .nums button{padding:10px 0;border:2px solid #2d4f70;border-radius:10px;background:#0b1a29;color:var(--ink);font:inherit;font-size:17px;font-weight:800}
+  .nums button.on{background:var(--gold);color:#222;border-color:var(--gold)}
+  .prow{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .prow canvas{width:36px;height:45px;image-rendering:pixelated;background:#24445f;border-radius:6px;flex:none}
+  .prow input{flex:1;min-width:0;padding:10px;border:2px solid #2d4f70;border-radius:10px;background:#0b1a29;color:var(--ink);font:inherit;font-size:16px}
+  .sex{display:flex;border:2px solid #2d4f70;border-radius:10px;overflow:hidden;flex:none}
+  .sex button{padding:9px 10px;border:none;background:#0b1a29;color:var(--mut);font:inherit;font-size:14px;font-weight:700}
+  .sex button.on{background:#2f80ed;color:#fff}
+  .btn{display:block;width:100%;margin-top:14px;padding:14px;border:none;border-radius:12px;background:#f2994a;color:#fff;font:inherit;font-size:17px;font-weight:800;box-shadow:0 4px 0 #b3651f}
+  .btn:disabled{background:#475d70;box-shadow:none;color:#9db4c8}
+  .btn.sub{background:transparent;border:2px solid var(--mut);box-shadow:none;color:var(--ink);font-size:15px;padding:11px}
+  /* アイテム選び */
+  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+  .items button{padding:8px 4px;border:2px solid #2d4f70;border-radius:10px;background:#0b1a29;color:var(--ink);font:inherit;font-size:12px;line-height:1.3}
+  .items button span{display:block;font-size:24px}
+  .items button.on{border-color:var(--gold);background:#3a3110}
+  /* 島 */
+  #play{background:#0b1724}
+  .top{display:flex;align-items:center;gap:10px;padding:8px 12px;font-weight:800}
+  .top span{flex:1}
+  .top button{border:2px solid #2d4f70;background:#0b1a29;color:var(--ink);border-radius:8px;font:inherit;padding:4px 10px}
+  .area{flex:1;display:flex;min-height:0}
+  .left{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1}
+  #scene{width:100%;image-rendering:pixelated;display:block;flex:none;background:#000}
+  #log{flex:1;overflow-y:auto;padding:10px 12px;font-size:15px;line-height:1.65;min-height:0}
+  #log p{margin:0 0 4px}
+  #log .ev{color:var(--gold);font-weight:800;font-size:16px;margin-top:6px}
+  #log .ok{color:#8fe3a0} #log .ng{color:#ff9a94} #log .esc{color:#7fd3ff;font-weight:800} #log .dead{color:#ff6b6b;font-weight:800} #log .dim{color:var(--mut);font-size:13px}
+  #roster{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;background:#0f2235;flex:none}
+  .pc{display:flex;flex-direction:column;align-items:center;font-size:11px;background:#16304a;border-radius:8px;padding:4px 2px;position:relative}
+  .pc canvas{width:28px;height:35px;image-rendering:pixelated}
+  .pc b{max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+  .pc .hp{width:90%;height:5px;background:#000;border-radius:3px;margin:2px 0}
+  .pc .hp i{display:block;height:100%;border-radius:3px;background:var(--ok)}
+  .pc .it{font-size:13px;letter-spacing:1px}
+  .pc.dead{opacity:.45} .pc.esc{outline:2px solid #7fd3ff}
+  .pc em{position:absolute;top:2px;right:4px;font-style:normal;font-size:12px}
+  .next{display:flex;gap:8px;padding:8px 12px 12px;flex:none}
+  .next .btn{margin:0}
+  /* 結果 */
+  .rank div{display:flex;align-items:center;gap:10px;background:#16304a;border-radius:10px;padding:8px 10px;margin-top:6px}
+  .rank b{width:2em;text-align:center;font-size:18px;color:var(--gold)}
+  .rank canvas{width:28px;height:35px;image-rendering:pixelated;flex:none}
+  .rank span{flex:1;line-height:1.35} .rank small{color:var(--mut);font-size:12px}
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:5}
+  .ov.on{display:flex}
+  .card{background:#16304a;border-radius:18px;padding:22px;text-align:center;width:min(86vw,340px)}
+  .card canvas{width:64px;height:80px;image-rendering:pixelated}
+  @media (orientation: landscape){
+    .area{flex-direction:row}
+    #roster{width:38%;grid-template-columns:repeat(2,1fr);align-content:start;overflow-y:auto}
+    #scene{height:46vh;width:calc(46vh * 96 / 56);align-self:center}
+  }
+  @media (orientation: portrait){ .area{flex-direction:column-reverse} }
+</style>
+</head>
+<body>
+
+<!-- 準備 -->
+<section class="scr on" id="setup">
+  <div class="wrap">
+    <h1>🏝️ 無人島に2つだけ</h1>
+    <p class="lead">無人島に持っていけるのは、30個の中から2つだけ。<br>数時間ごとに何かが起きる。脱出できた順、<br>そのあとは生きのびた日数で順位が決まる。</p>
+    <h2>人数</h2>
+    <div class="nums" id="nums"></div>
+    <div id="plist"></div>
+    <button class="btn" id="toPick">持ち物を選ぶ</button>
+  </div>
+</section>
+
+<!-- 交代 -->
+<section class="scr" id="hand">
+  <div class="wrap" style="text-align:center">
+    <canvas id="hIcon" width="10" height="12" style="width:80px;height:96px;image-rendering:pixelated"></canvas>
+    <h2 id="hName"></h2>
+    <p class="lead">ほかの人は見ないでね</p>
+    <button class="btn" id="hGo">持ち物を選ぶ</button>
+  </div>
+</section>
+
+<!-- アイテム選び -->
+<section class="scr" id="pick">
+  <div class="wrap">
+    <h2 id="pkTitle">2つ選んでください</h2>
+    <div class="items" id="items"></div>
+    <button class="btn" id="pkOk" disabled>この2つで決定</button>
+  </div>
+</section>
+
+<!-- 島 -->
+<section class="scr" id="play">
+  <div class="top"><span id="clock"></span><button id="auto">▶▶ 自動</button></div>
+  <div class="area">
+    <div class="left">
+      <canvas id="scene" width="96" height="56"></canvas>
+      <div id="log"></div>
+    </div>
+    <div id="roster"></div>
+  </div>
+  <div class="next"><button class="btn" id="nextBtn">次へ ▶</button></div>
+</section>
+
+<!-- 結果 -->
+<section class="scr" id="result">
+  <div class="wrap">
+    <h1>🏁 結果発表</h1>
+    <div class="rank" id="rank"></div>
+    <button class="btn" id="again">同じメンバーでもう一度（持ち物を選び直す）</button>
+    <button class="btn sub" id="toSetup">人数・名前を変える</button>
+  </div>
+</section>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const R = () => Math.random();
+const pick = a => a[Math.floor(R() * a.length)];
+const shuffle = a => a.map(x => [R(), x]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+// ================= 持ち物（30個） =================
+const ITEMS = [
+  ['knife','ナイフ','🔪'], ['lighter','ライター','🔥'], ['rod','釣り竿','🎣'], ['tent','テント','⛺'], ['sleep','寝袋','🛌'],
+  ['filter','浄水器','🚰'], ['firstaid','救急箱','🩹'], ['pot','鍋','🍲'], ['rope','ロープ','🪢'], ['torch','懐中電灯','🔦'],
+  ['mirror','手鏡','🪞'], ['flare','発煙筒','🧨'], ['radio','無線機','📻'], ['satphone','衛星電話','📡'], ['binocular','双眼鏡','🔭'],
+  ['umbrella','傘','☂️'], ['sunscreen','日焼け止め','🧴'], ['bugspray','虫よけスプレー','🦟'], ['salt','塩','🧂'], ['cans','缶詰100個','🥫'],
+  ['axe','斧','🪓'], ['shovel','スコップ','⛏️'], ['boat','ゴムボート','🛶'], ['ring','浮き輪','🛟'], ['map','地図とコンパス','🧭'],
+  ['book','サバイバル本','📕'], ['guitar','ギター','🎸'], ['cat','ねこ','🐈'], ['pillow','まくら','💤'], ['cash','現金100万円','💴'],
+];
+const IT = Object.fromEntries(ITEMS.map(([id, n, e]) => [id, {id, n, e}]));
+
+// ================= 出来事 =================
+// time: morning / noon / night（いつ起きるか）  scene: 絵の種類
+// who: all（全員）か 1〜2（ランダムな人数）
+// guard: これを持っていればダメージなし  heal: これを持っていると回復  escape: 持っていれば確率で脱出
+const EVENTS = [
+  {n:'スコールが来た！', scene:'rain', time:'any', who:'all', dmg:10, guard:['tent','umbrella'], heal:{filter:6, pot:4}, ok:'雨をしのいだ', ng:'ずぶぬれになった'},
+  {n:'焼けつくような日差し', scene:'sun', time:'noon', who:'all', dmg:12, guard:['umbrella','sunscreen','tent'], ok:'日差しを避けられた', ng:'日焼けでヒリヒリ……'},
+  {n:'夜の冷え込み', scene:'cold', time:'night', who:'all', dmg:10, guard:['sleep','lighter','tent'], heal:{pillow:3}, ok:'あたたかく眠れた', ng:'寒くて眠れない'},
+  {n:'蚊の大群が襲ってきた', scene:'bugs', time:'night', who:'all', dmg:8, guard:['bugspray','lighter'], ok:'蚊を追い払った', ng:'全身かゆい……'},
+  {n:'おなかがペコペコ', scene:'hungry', time:'morning', who:'all', dmg:12, guard:['cans','rod'], heal:{rod:6, cans:4, knife:3, pot:3, salt:2}, ok:'ちゃんと食べられた', ng:'空腹でふらふら'},
+  {n:'のどがカラカラ', scene:'sun', time:'noon', who:'all', dmg:12, guard:['filter','pot'], heal:{filter:5}, ok:'きれいな水を飲めた', ng:'水が足りない……'},
+  {n:'嵐がやってきた！', scene:'storm', time:'any', who:'all', dmg:20, guard:['tent','rope','axe'], ok:'しっかりした寝床で耐えた', ng:'嵐にもまれた'},
+  {n:'サメが浅瀬に！', scene:'shark', time:'any', who:2, dmg:25, guard:['knife','boat'], ok:'サメを追い払った', ng:'足をかまれた！'},
+  {n:'毒ヘビにかまれた！', scene:'snake', time:'any', who:1, dmg:30, guard:['firstaid'], ok:'救急箱ですぐ手当てした', ng:'毒がまわってきた……'},
+  {n:'イノシシが突進してきた', scene:'boar', time:'any', who:1, dmg:22, guard:['axe','knife'], heal:{lighter:8, pot:5}, ok:'返り討ちにして、今夜はごちそうだ', ng:'はね飛ばされた！'},
+  {n:'サルに荷物をあさられた', scene:'monkey', time:'noon', who:1, dmg:8, guard:['cat','guitar'], ok:'サルはびっくりして逃げていった', ng:'食料をとられた'},
+  {n:'岩場で足をすべらせた', scene:'rock', time:'any', who:1, dmg:15, guard:['rope'], heal:{firstaid:12}, ok:'ロープで体を支えた', ng:'ケガをした'},
+  {n:'ひとりぼっちのさみしさ', scene:'lonely', time:'night', who:'all', dmg:8, guard:['cat','guitar','book','pillow'], ok:'心が少し軽くなった', ng:'気持ちが沈んでいく……'},
+  {n:'地震で崖がくずれた', scene:'quake', time:'any', who:2, dmg:18, guard:['shovel'], ok:'すぐに掘り出して助かった', ng:'土砂に巻き込まれた'},
+  {n:'大波が打ち寄せた', scene:'wave', time:'any', who:'all', dmg:14, guard:['rope','ring'], ok:'流されずにすんだ', ng:'波にさらわれかけた'},
+  {n:'ヤシの実を見つけた', scene:'palm', time:'noon', who:'all', dmg:0, heal:{axe:12, knife:10, rope:6}, ok:'', ng:'割れなくて食べられない'},
+  {n:'洞窟を見つけた', scene:'cave', time:'noon', who:'all', dmg:0, heal:{torch:12, lighter:8}, ok:'', ng:'暗くて入れない'},
+  {n:'満月の夜', scene:'moon', time:'night', who:'all', dmg:0, heal:{guitar:12, book:4}, base:4, ok:'', ng:''},
+  {n:'浜辺に漂流物が流れ着いた', scene:'drift', time:'morning', who:1, dmg:0, base:15, ok:'', ng:''},
+  {n:'魚の群れが近くに来た', scene:'fish', time:'morning', who:'all', dmg:0, heal:{rod:14, pot:4, salt:4}, ok:'', ng:''},
+  {n:'お金の使いみちがない', scene:'lonely', time:'noon', who:'all', dmg:0, onlyIf:'cash', heal:{cash:1}, ok:'', ng:'', note:'現金100万円でたき火をした。……少しだけあたたかい。'},
+  // 脱出のチャンス
+  {n:'沖を船が通りかかった！', scene:'ship', time:'noon', who:'all', escape:{flare:.65, mirror:.4, binocular:.2, radio:.35}, ok:'', ng:''},
+  {n:'飛行機が上空を飛んでいく！', scene:'plane', time:'noon', who:'all', escape:{flare:.55, mirror:.45}, ok:'', ng:''},
+  {n:'無線に誰かの声が入った', scene:'radio', time:'any', who:'all', escape:{radio:.45, satphone:.5}, ok:'', ng:''},
+  {n:'衛星の電波がつながった！', scene:'stars', time:'night', who:'all', escape:{satphone:.6}, ok:'', ng:''},
+  {n:'潮の流れが変わった', scene:'current', time:'morning', who:'all', escape:{boat:.4, ring:.12}, risky:{boat:18, ring:22}, map:'map', ok:'', ng:''},
+  {n:'夜の海に灯りが見えた', scene:'nightship', time:'night', who:'all', escape:{torch:.4, flare:.5}, ok:'', ng:''},
+];
+const TIMES = [{id:'morning', n:'朝', h:'6:00'}, {id:'noon', n:'昼', h:'13:00'}, {id:'night', n:'夜', h:'21:00'}];
+const LAST_DAY = 14;
+
+// ================= ドット絵のアイコン =================
+const SKIN = ['#f6cfa8','#e8b88f','#c98e62'], HAIR = ['#2b1d14','#6b4226','#c98a2f','#1a1a1a','#8c2f1b','#d9c27a','#444','#5b3a8a'];
+const SHIRT = ['#e8453c','#2f80ed','#27ae60','#f2c94c','#9b51e0','#f2994a','#00b8b0','#eb5ca8'];
+function drawIcon(c, i, sex, opt = {}){
+  const x = c.getContext('2d'); c.width = 10; c.height = 12; x.clearRect(0, 0, 10, 12);
+  const px = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+  const skin = SKIN[i % 3], hair = HAIR[i % 8], shirt = SHIRT[i % 8];
+  px(3, 1, 4, 4, skin);                              // 顔
+  px(2, 0, 6, 2, hair); px(2, 2, 1, 2, hair); px(7, 2, 1, 2, hair);   // 髪
+  if (sex === 'f'){ px(1, 2, 1, 5, hair); px(8, 2, 1, 5, hair); px(2, 4, 1, 2, hair); px(7, 4, 1, 2, hair); }
+  px(4, 3, 1, 1, '#222'); px(6, 3, 1, 1, '#222');   // 目
+  px(2, 5, 6, 4, shirt); px(1, 6, 1, 2, skin); px(8, 6, 1, 2, skin);  // 服・手
+  if (sex === 'f') px(2, 8, 6, 2, shirt); else { px(3, 9, 2, 2, '#34495e'); px(5, 9, 2, 2, '#34495e'); }
+  px(3, 11, 2, 1, '#222'); px(5, 11, 2, 1, '#222');
+}
+
+// ================= 島の絵（96×56のドット絵） =================
+const sc = $('scene'), sx = sc.getContext('2d');
+function P(a, b, w, h, col){ sx.fillStyle = col; sx.fillRect(a | 0, b | 0, w, h); }
+function drawScene(kind, time, frame){
+  const night = time === 'night', morning = time === 'morning';
+  // 空
+  const skyTop = night ? '#0b1530' : morning ? '#ffb88a' : '#5ab4f0', skyBot = night ? '#1f2d5a' : morning ? '#ffe1a8' : '#a8dcff';
+  for (let y = 0; y < 30; y++) P(0, y, 96, 1, y < 15 ? skyTop : skyBot);
+  if (night) for (let i = 0; i < 18; i++) P((i * 37) % 96, (i * 13) % 26, 1, 1, frame % 20 === i ? '#fff' : '#cfd8ff');
+  // 太陽・月
+  if (kind === 'sun') { P(70, 4, 12, 12, '#ffe14d'); P(68, 8, 16, 4, '#ffe14d'); P(74, 2, 4, 16, '#ffe14d'); }
+  else if (night && kind !== 'storm') { P(76, 5, 7, 7, kind === 'moon' ? '#fff6c8' : '#e0e6ff'); if (kind !== 'moon') P(79, 5, 4, 5, skyTop); }
+  else if (!night && kind !== 'rain' && kind !== 'storm') P(78, 6, 6, 6, '#fff3a0');
+  // 雲
+  if (kind === 'rain' || kind === 'storm'){ for (let i = 0; i < 4; i++){ P(i * 26 - 4, 3 + (i % 2) * 3, 26, 7, kind === 'storm' ? '#3b4252' : '#8a97a8'); } }
+  // 海
+  for (let y = 30; y < 56; y++) P(0, y, 96, 1, y < 34 ? '#2e86c1' : '#2373aa');
+  for (let i = 0; i < 6; i++) P(((i * 19 + frame) % 100) - 4, 33 + (i % 3) * 7, 5, 1, '#8fd0ff');
+  // 島
+  P(14, 40, 68, 16, '#f3d38b'); P(10, 44, 76, 12, '#f3d38b'); P(20, 38, 56, 2, '#f3d38b');
+  P(14, 46, 68, 1, '#e6c06e');
+  // ヤシの木
+  P(22, 22, 2, 18, '#8b5a2b');
+  for (const [a, b] of [[14, 20], [18, 18], [24, 18], [28, 20]]) P(a, b, 6, 2, '#2e8b57');
+  P(20, 20, 6, 3, '#3cb371');
+  if (kind === 'palm' || kind === 'monkey'){ P(21, 23, 2, 2, '#7a4a1a'); P(24, 23, 2, 2, '#7a4a1a'); }
+  if (kind === 'monkey'){ P(25, 15, 4, 4, '#8a5a2b'); P(26, 16, 2, 2, '#e8c39e'); P(29, 17, 2, 1, '#8a5a2b'); }
+  // 出来事ごとの絵
+  if (kind === 'rain' || kind === 'storm') for (let i = 0; i < 40; i++) P((i * 23 + frame * 3) % 96, (i * 11 + frame * 4) % 56, 1, 3, '#cfe8ff');
+  if (kind === 'storm' && frame % 12 < 2){ P(60, 8, 2, 8, '#fff'); P(58, 16, 2, 8, '#fff'); P(60, 24, 2, 6, '#fff'); }
+  if (kind === 'shark'){ const x = 60 + Math.sin(frame / 6) * 10; P(x, 31, 3, 1, '#5f6b77'); P(x + 1, 29, 2, 2, '#5f6b77'); P(x + 2, 28, 1, 1, '#5f6b77'); }
+  if (kind === 'snake'){ for (let i = 0; i < 8; i++) P(54 + i * 2, 49 + ((i + frame / 3) % 2 | 0), 2, 1, '#3a8d2f'); P(70, 48, 2, 2, '#3a8d2f'); }
+  if (kind === 'boar'){ const x = 70 - (frame % 30); P(x, 44, 8, 4, '#5c3d24'); P(x - 2, 45, 2, 2, '#5c3d24'); P(x - 3, 46, 1, 1, '#fff'); P(x + 1, 48, 1, 2, '#3d2817'); P(x + 6, 48, 1, 2, '#3d2817'); }
+  if (kind === 'bugs') for (let i = 0; i < 24; i++) P(30 + ((i * 17 + frame) % 40), 36 + ((i * 7 + frame * 2) % 12), 1, 1, '#222');
+  if (kind === 'cold') for (let i = 0; i < 20; i++) P((i * 29 + frame) % 96, (i * 7 + frame) % 40, 1, 1, '#fff');
+  if (kind === 'quake'){ P(60, 38, 1, 8, '#7a5a2a'); P(61, 44, 3, 1, '#7a5a2a'); P(64, 45, 1, 6, '#7a5a2a'); }
+  if (kind === 'rock' || kind === 'quake'){ P(66, 34, 14, 8, '#8a8f98'); P(70, 30, 8, 4, '#9aa0aa'); }
+  if (kind === 'wave'){ const x = 96 - (frame * 2) % 120; P(x, 26, 20, 10, '#2e86c1'); P(x, 24, 16, 3, '#cfeaff'); }
+  if (kind === 'cave'){ P(64, 30, 18, 12, '#6b6f78'); P(69, 34, 8, 8, '#111'); }
+  if (kind === 'drift'){ P(72, 45, 6, 4, '#a0703a'); P(72, 45, 6, 1, '#c99a5a'); }
+  if (kind === 'fish') for (let i = 0; i < 5; i++){ const x = (i * 19 + frame) % 96; P(x, 36 + i * 3, 3, 1, '#c0e8ff'); }
+  if (kind === 'ship' || kind === 'nightship'){ const x = 92 - (frame / 2) % 110; P(x, 27, 12, 3, night ? '#222' : '#e8453c'); P(x + 2, 24, 7, 3, '#fff'); P(x + 5, 21, 2, 3, '#555');
+    if (kind === 'nightship') P(x + 9, 25, 2, 2, frame % 10 < 5 ? '#ffe14d' : '#fff6c8'); }
+  if (kind === 'plane'){ const x = (frame * 2) % 130 - 20; P(x, 9, 9, 2, '#eee'); P(x + 3, 7, 2, 6, '#ccc'); for (let i = 1; i < 6; i++) P(x - i * 4, 10, 3, 1, '#fff'); }
+  if (kind === 'radio' || kind === 'stars'){ if (frame % 16 < 8){ P(46, 26, 1, 1, '#fff'); P(44, 24, 5, 1, '#fff'); P(42, 22, 9, 1, '#fff'); } }
+  if (kind === 'current') for (let i = 0; i < 8; i++) P(((i * 13 + frame * 2) % 96), 50 + (i % 2), 4, 1, '#cfeaff');
+  if (kind === 'lonely' || kind === 'moon' || kind === 'cold'){ P(46, 48, 4, 2, '#8b5a2b'); P(47, 45, 2, 3, frame % 6 < 3 ? '#ff9f43' : '#ffd166'); }
+  // 人（生きている人は砂浜に、脱出した人はボートで）
+  const alive = G.players.filter(p => !p.dead && !p.escaped);
+  alive.forEach((p, k) => {
+    const x = 32 + (k % 8) * 6, y = 40 + ((k % 2) ? 2 : 0);
+    sx.drawImage(p.icon, x, y - 7 + ((frame + k * 3) % 20 < 2 ? -1 : 0), 6, 7);
+  });
+  G.players.filter(p => p.dead).forEach((p, k) => { const x = 74 + (k % 4) * 4, y = 50 - Math.floor(k / 4) * 3; P(x + 1, y - 3, 1, 4, '#d8d8d8'); P(x, y - 2, 3, 1, '#d8d8d8'); });
+}
+
+// ================= 準備 =================
+let setup = load('setup', {count: 2, players: []});
+function renderSetup(){
+  $('nums').innerHTML = '';
+  for (let i = 1; i <= 8; i++){
+    const b = document.createElement('button'); b.textContent = i; b.className = i === setup.count ? 'on' : '';
+    b.onclick = () => { readSetup(); setup.count = i; renderSetup(); };
+    $('nums').appendChild(b);
+  }
+  $('plist').innerHTML = '';
+  for (let i = 0; i < setup.count; i++){
+    const p = setup.players[i] || (setup.players[i] = {name: '', sex: i % 2 ? 'f' : 'm'});
+    const row = document.createElement('div'); row.className = 'prow';
+    row.innerHTML = `<canvas></canvas><input maxlength="10" placeholder="プレイヤー${i + 1}"><div class="sex"><button data-s="m">男</button><button data-s="f">女</button></div>`;
+    const cv = row.querySelector('canvas'); drawIcon(cv, i, p.sex);
+    row.querySelector('input').value = p.name;
+    row.querySelectorAll('.sex button').forEach(b => {
+      b.classList.toggle('on', b.dataset.s === p.sex);
+      b.onclick = () => { readSetup(); p.sex = b.dataset.s; renderSetup(); };
+    });
+    $('plist').appendChild(row);
+  }
+}
+function readSetup(){ [...$('plist').querySelectorAll('input')].forEach((x, i) => setup.players[i].name = x.value.trim()); }
+renderSetup();
+
+// ================= 持ち物選び =================
+let G = null, pi = 0, chosen = [];
+$('toPick').onclick = () => { readSetup(); save('setup', setup); startPicking(); };
+function startPicking(){
+  G = {players: setup.players.slice(0, setup.count).map((p, i) => {
+    const c = document.createElement('canvas'); drawIcon(c, i, p.sex);
+    return {i, name: p.name || `プレイヤー${i + 1}`, sex: p.sex, icon: c, hp: 100, items: [], dead: false, escaped: false, deadAt: null, escAt: null, escOrder: 0};
+  }), day: 1, ti: 0, escCount: 0, log: []};
+  pi = 0; handTo();
+}
+function handTo(){
+  if (pi >= G.players.length){ startIsland(); return; }
+  const p = G.players[pi];
+  drawIcon($('hIcon'), p.i, p.sex);
+  $('hName').textContent = `${p.name} の番`;
+  show('hand');
+}
+$('hGo').onclick = () => { chosen = []; renderItems(); show('pick'); };
+function renderItems(){
+  $('pkTitle').textContent = `${G.players[pi].name}：無人島に持っていく2つを選んでください（${chosen.length}/2）`;
+  $('items').innerHTML = '';
+  ITEMS.forEach(([id, n, e]) => {
+    const b = document.createElement('button'); b.innerHTML = `<span>${e}</span>${n}`;
+    b.className = chosen.includes(id) ? 'on' : '';
+    b.onclick = () => {
+      if (chosen.includes(id)) chosen = chosen.filter(x => x !== id);
+      else if (chosen.length < 2) chosen.push(id);
+      renderItems();
+    };
+    $('items').appendChild(b);
+  });
+  $('pkOk').disabled = chosen.length !== 2;
+}
+$('pkOk').onclick = () => { G.players[pi].items = chosen.slice(); pi++; handTo(); };
+
+// ================= 島での生活 =================
+let frame = 0, auto = false, busy = false;
+function startIsland(){
+  $('log').innerHTML = ''; auto = false; $('auto').textContent = '▶▶ 自動';
+  show('play'); renderRoster(); updateClock();
+  line('―― 船が難破し、無人島に流れ着いた ――', 'ev');
+  G.players.forEach(p => line(`${p.name} の持ち物：${p.items.map(id => IT[id].e + IT[id].n).join('、')}`, 'dim'));
+  $('nextBtn').textContent = '1日目の朝へ ▶';
+}
+function updateClock(){ const t = TIMES[G.ti]; $('clock').textContent = `🏝️ ${G.day}日目　${t.n}（${t.h}）　のこり ${active().length}人`; }
+function active(){ return G.players.filter(p => !p.dead && !p.escaped); }
+function has(p, id){ return p.items.includes(id); }
+function line(t, cls = ''){ const d = document.createElement('p'); d.className = cls; d.textContent = t; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; }
+function renderRoster(){
+  $('roster').innerHTML = '';
+  G.players.forEach(p => {
+    const d = document.createElement('div'); d.className = 'pc' + (p.dead ? ' dead' : '') + (p.escaped ? ' esc' : '');
+    const c = document.createElement('canvas'); drawIcon(c, p.i, p.sex);
+    d.appendChild(c);
+    d.insertAdjacentHTML('beforeend', `<b>${esc(p.name)}</b><div class="hp"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? 'var(--ng)' : 'var(--ok)'}"></i></div><div class="it">${p.items.map(id => IT[id].e).join('')}</div>${p.dead ? '<em>🪦</em>' : p.escaped ? '<em>🚤</em>' : ''}`);
+    $('roster').appendChild(d);
+  });
+}
+let curScene = 'calm';
+function loop(){ frame++; if (G && $('play').classList.contains('on')) drawScene(curScene, TIMES[G.ti].id, frame); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+async function step(){
+  if (busy) return; busy = true;
+  const t = TIMES[G.ti];
+  updateClock();
+  // 最終日の夜は救助隊
+  if (G.day === LAST_DAY && t.id === 'night'){
+    curScene = 'ship';
+    line(`【${G.day}日目・${t.n}】救助隊がやってきた！`, 'ev');
+    for (const p of active()){ p.escaped = true; p.escAt = {day: G.day, ti: G.ti}; p.escOrder = ++G.escCount; p.rescued = true; line(`${p.name} は救助隊に助けられた！（${G.day}日間生きのびた）`, 'esc'); }
+    renderRoster(); busy = false; return finish();
+  }
+  const cand = EVENTS.filter(e => (e.time === 'any' || e.time === t.id) && (!e.onlyIf || active().some(p => has(p, e.onlyIf))));
+  // 脱出の出来事は、2日目から少しずつ起きやすくなる
+  // 脱出のチャンスは2日目から。3〜4回に1回くらいの割合で起きる
+  const escEv = cand.filter(e => e.escape), normal = cand.filter(e => !e.escape);
+  const ev = (G.day >= 2 && escEv.length && R() < .3) ? pick(escEv) : pick(normal);
+  // 朝は、ひと晩休んで少しだけ回復
+  if (t.id === 'morning' && G.day > 1) active().forEach(p => p.hp = Math.min(100, p.hp + 5));
+  curScene = ev.scene;
+  line(`【${G.day}日目・${t.n}】${ev.n}`, 'ev');
+  await sleep(auto ? 200 : 500);
+  let targets = ev.who === 'all' ? active() : shuffle(active()).slice(0, ev.who);
+  for (const p of targets){
+    if (ev.escape){
+      let got = null;
+      for (const [id, pr] of Object.entries(ev.escape)) if (has(p, id)){ const bonus = ev.map && has(p, ev.map) ? .15 : 0; if (R() < pr * .6 + bonus){ got = id; break; } }
+      if (got){
+        p.escaped = true; p.escAt = {day: G.day, ti: G.ti}; p.escOrder = ++G.escCount;
+        line(`🎉 ${p.name} は${IT[got].e}${IT[got].n}で合図を送り、脱出に成功した！`, 'esc');
+      } else if (ev.risky && Object.keys(ev.risky).some(id => has(p, id))){
+        const id = Object.keys(ev.risky).find(id => has(p, id)), d = ev.risky[id];
+        p.hp -= d; line(`${p.name} は${IT[id].n}で海に出たが、押し戻された……（-${d}）`, 'ng');
+      } else if (Object.keys(ev.escape).some(id => has(p, id))){
+        line(`${p.name} は合図を送ったが、気づいてもらえなかった……`, 'dim');
+      }
+      continue;
+    }
+    const g = (ev.guard || []).find(id => has(p, id));
+    let msg = '', cls = '';
+    if (ev.dmg && !g){ const d = Math.round(ev.dmg * 0.8 * (.8 + R() * .4)); p.hp -= d; msg = `${p.name}：${ev.ng}（-${d}）`; cls = 'ng'; }
+    else if (ev.dmg && g){ msg = `${p.name}：${IT[g].e}${IT[g].n}のおかげで、${ev.ok}`; cls = 'ok'; }
+    let h = ev.base || 0, hi = null;
+    for (const [id, v] of Object.entries(ev.heal || {})) if (has(p, id) && v > h - (ev.base || 0)){ h = (ev.base || 0) + v; hi = id; }
+    if (h > 0){ p.hp = Math.min(100, p.hp + h); msg += (msg ? '　' : `${p.name}：`) + (hi ? `${IT[hi].e}${IT[hi].n}が役に立って` : '') + `回復した（+${h}）`; cls = cls || 'ok'; }
+    else if (!ev.dmg && ev.ng && !msg){ msg = `${p.name}：${ev.ng}`; cls = 'dim'; }
+    if (ev.note && has(p, ev.onlyIf)) msg = `${p.name}：${ev.note}`;
+    if (msg) line(msg, cls);
+    if (p.hp <= 0 && !p.dead){ p.dead = true; p.hp = 0; p.deadAt = {day: G.day, ti: G.ti}; line(`💀 ${p.name} は力尽きた……（${G.day}日目・${t.n}）`, 'dead'); }
+  }
+  if (!targets.length) line('（ここには、もう誰もいない……）', 'dim');
+  renderRoster();
+  // 時間を進める（時計の表示は、次の出来事のときに更新）
+  G.ti++; if (G.ti >= 3){ G.ti = 0; G.day++; }
+  busy = false;
+  if (!active().length) return finish();
+  $('nextBtn').textContent = '次へ ▶';
+  if (auto){ await sleep(900); if (auto) step(); }
+}
+$('nextBtn').onclick = () => { if (!busy) step(); };
+$('auto').onclick = () => { auto = !auto; $('auto').textContent = auto ? '⏸ 止める' : '▶▶ 自動'; if (auto && !busy) step(); };
+
+// ================= 結果：脱出した順 → 生きのびた時間の長い順 =================
+function finish(){
+  auto = false;
+  const tval = a => a ? a.day * 3 + a.ti : 0;
+  const escd = G.players.filter(p => p.escaped).sort((a, b) => a.escOrder - b.escOrder);
+  const dead = G.players.filter(p => p.dead).sort((a, b) => tval(b.deadAt) - tval(a.deadAt));
+  const order = escd.concat(dead);
+  $('rank').innerHTML = '';
+  order.forEach((p, k) => {
+    const d = document.createElement('div');
+    const c = document.createElement('canvas'); drawIcon(c, p.i, p.sex);
+    const how = p.escaped ? (p.rescued ? `🚁 ${p.escAt.day}日目に救助隊で脱出` : `🚤 ${p.escAt.day}日目・${TIMES[p.escAt.ti].n}に脱出`) : `🪦 ${p.deadAt.day}日目・${TIMES[p.deadAt.ti].n}に力尽きた`;
+    d.innerHTML = `<b>${k + 1}位</b>`; d.appendChild(c);
+    d.insertAdjacentHTML('beforeend', `<span>${esc(p.name)}<br><small>${how}／${p.items.map(id => IT[id].e + IT[id].n).join('・')}</small></span>`);
+    $('rank').appendChild(d);
+  });
+  setTimeout(() => show('result'), 1200);
+}
+$('again').onclick = startPicking;
+$('toSetup').onclick = () => { renderSetup(); show('setup'); };
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function show(id){ document.querySelectorAll('.scr').forEach(s => s.classList.toggle('on', s.id === id)); }
+</script>
+</body>
+</html>
