@@ -27,9 +27,14 @@
   .btn:disabled{background:#475d70;box-shadow:none;color:#9db4c8}
   .btn.sub{background:transparent;border:2px solid var(--mut);box-shadow:none;color:var(--ink);font-size:15px;padding:11px}
   /* アイテム選び */
-  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
-  .items button{padding:8px 4px;border:2px solid #2d4f70;border-radius:10px;background:#0b1a29;color:var(--ink);font:inherit;font-size:12px;line-height:1.3}
-  .items button span{display:block;font-size:24px}
+  /* 30個が画面に収まるよう、縦は5列×6段、横は10列×3段にして、マスの高さを画面に合わせる */
+  .pkWrap{display:flex;flex-direction:column;width:100%;max-width:900px;height:100%;margin:0 auto;padding:8px 10px 10px}
+  .pkWrap h2{font-size:15px;margin:2px 0 8px;flex:none}
+  .pkWrap .btn{flex:none;margin-top:8px;padding:11px}
+  .items{flex:1;min-height:0;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr);gap:5px}
+  .items button{min-height:0;min-width:0;overflow:hidden;padding:2px;border:2px solid #2d4f70;border-radius:10px;background:#0b1a29;color:var(--ink);font:inherit;font-size:11px;line-height:1.2;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .items button span{display:block;font-size:min(24px,4.2vh);line-height:1.15}
+  @media (orientation: landscape){ .items{grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(3,1fr)} .items button span{font-size:min(28px,7vh)} }
   .items button.on{border-color:var(--gold);background:#3a3110}
   /* 島 */
   #play{background:#0b1724}
@@ -97,7 +102,7 @@
 
 <!-- アイテム選び -->
 <section class="scr" id="pick">
-  <div class="wrap">
+  <div class="pkWrap">
     <h2 id="pkTitle">2つ選んでください</h2>
     <div class="items" id="items"></div>
     <button class="btn" id="pkOk" disabled>この2つで決定</button>
@@ -302,7 +307,7 @@ function handTo(){
 }
 $('hGo').onclick = () => { chosen = []; renderItems(); show('pick'); };
 function renderItems(){
-  $('pkTitle').textContent = `${G.players[pi].name}：無人島に持っていく2つを選んでください（${chosen.length}/2）`;
+  $('pkTitle').textContent = `${G.players[pi].name}：持っていく2つを選んで（${chosen.length}/2）`;
   $('items').innerHTML = '';
   ITEMS.forEach(([id, n, e]) => {
     const b = document.createElement('button'); b.innerHTML = `<span>${e}</span>${n}`;
